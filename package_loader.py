@@ -33,6 +33,26 @@ def verify(data,r):
     r=metadata(json.dumps(r))
     if len(data)!=r['bytes'] or hashlib.sha256(data).hexdigest()!=r['sha256']:raise ValueError('Hash paket tidak sesuai')
 
+def validate_installation_package(result):
+    result=Path(result)
+    # CUTSAPAY_INSTALL_ASSETS_V1
+    try:assets=json.loads((result/'INSTALL.json').read_text())
+    except (OSError,ValueError):raise ValueError('Manifest kelengkapan installer tidak tersedia')
+    if assets.get('schema')!=1 or not isinstance(assets.get('files'),dict) or len(assets['files'])>4096:raise ValueError('Manifest installer tidak valid')
+    required={'src/install.sh','src/haproxy.cfg','src/license_agent.py','api/install.sh','src/validate_installer.py'}
+    if not required<=set(assets['files']):raise ValueError('Aset wajib installer tidak lengkap')
+    actual={p.relative_to(result).as_posix() for p in result.rglob('*') if p.is_file() and p.name!='INSTALL.json'}
+    missing=set(assets['files'])-actual;extra=actual-set(assets['files'])
+    if missing:raise ValueError('Aset installer hilang: '+', '.join(sorted(missing)[:5]))
+    if extra:raise ValueError('Aset installer tidak dikenal: '+', '.join(sorted(extra)[:5]))
+    for name,digest in assets['files'].items():
+        relative=Path(name)
+        if relative.is_absolute() or '..' in relative.parts or not re.fullmatch('[a-f0-9]{64}',str(digest)):raise ValueError('Jalur atau hash aset installer tidak valid')
+        source=result/relative
+        if not source.is_file() or hashlib.sha256(source.read_bytes()).hexdigest()!=digest:raise ValueError('Aset installer hilang/rusak: '+name)
+    if not (result/'src/install.sh').is_file():raise ValueError('Paket installer tidak lengkap')
+
+
 def extract(bundle,root):
     data,r=bundle['archive'],bundle['release'];verify(data,r)
     root=Path(root).resolve();root.mkdir(parents=True,exist_ok=True)
@@ -55,9 +75,12 @@ def extract(bundle,root):
                 with z.open(i,pwd=password) as src,p.open('wb') as out:shutil.copyfileobj(src,out)
                 p.chmod(0o644)
     result=root/'cutsapay-vpn'
-    if not (result/'src/install.sh').is_file():raise ValueError('Paket installer tidak lengkap')
+    validate_installation_package(result)
     return result
 
 if __name__=='__main__':
-    try:extract(fetch(sys.argv[1]),Path(sys.argv[2]))
+    try:
+        bundle=fetch(sys.argv[1]);extract(bundle,Path(sys.argv[2]))
+        print('Paket SC '+bundle['release']['version']+' terverifikasi; commit '+sys.argv[1][:12])
+    except ValueError as error:raise SystemExit('Paket installer ditolak: '+str(error)[:200])
     except Exception:raise SystemExit('Paket belum bisa dibuka; periksa release GitHub dan jaringan.')

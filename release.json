@@ -1,8 +1,8 @@
 {
   "schema": 1,
-  "version": "1.7.1",
-  "archive": "payload/cutsapay-vpn-1.7.1.zip",
-  "bytes": 143969,
-  "sha256": "c42f0b1b5a2824988e16332cc74dd59c47adf7879ff2dc653293f8867c8897e7",
-  "key_hex": "3730663562393065643265336164393966333435363264623162356262336166"
+  "version": "1.7.2",
+  "archive": "payload/cutsapay-vpn-1.7.2.zip",
+  "bytes": 153738,
+  "sha256": "bcc874099cb1e5fa9e491ccc57e2c55d0fb9ee15abb273f786c4abf981dc9495",
+  "key_hex": "6135323836366663646634393562343034353732663062343934333432383136"
 }
